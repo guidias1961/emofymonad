@@ -4,8 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Emofy | Stream Your Music on Monad</title>
-  <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16.png">
+  
+  <link rel="icon" type="image/png" href="./logo.png">
+  
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
   <style>
     :root{
@@ -24,8 +25,16 @@
     body { display:flex; height:100vh; font-family:'Segoe UI',sans-serif; background:var(--bg-dark); color:#e0e0e0; overflow:hidden }
 
     #sidebar { width:280px; padding:20px; background:rgba(22,22,24,0.95); backdrop-filter:blur(8px); display:flex; flex-direction:column; gap:20px; border-right:1px solid #333 }
-    #sidebar h1 { font-size:2rem; color:var(--accent); display:flex; align-items:center; gap:10px; letter-spacing: -1px; }
-    .logo-emoji { font-size: 2.5rem; }
+    #sidebar h1 { font-size:2rem; color:var(--accent); display:flex; align-items:center; gap:12px; letter-spacing: -1px; }
+    
+    /* NOVO ESTILO DO LOGO */
+    .logo-img { 
+      width: 45px; 
+      height: 45px; 
+      object-fit: cover; 
+      border-radius: 50%; /* Deixa redondinho */
+      box-shadow: 0 0 10px rgba(131, 110, 249, 0.5);
+    }
 
     #sidebar nav a, #sidebar nav button {
       display:block; padding:12px 0; color:#bbb; cursor:pointer; text-decoration:none; background:none; border:none;
@@ -215,7 +224,7 @@
 <body>
   <div id="sidebar">
     <h1>
-      <span class="logo-emoji">👾</span>
+      <img src="./logo.png" alt="Emofy Logo" class="logo-img">
       <span style="font-size: 1.6rem; font-weight: 800; color: #fff;">Emofy</span>
     </h1>
     <button class="sidebar-close" aria-label="Close" onclick="closeSidebar()">
@@ -342,9 +351,8 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
   <script>
-    // CONFIGURAÇÃO DO SERVIDOR (MUDE ISSO QUANDO SUBIR PARA A NUVEM)
-    // Para testar no seu PC: "http://localhost:3000"
-const API_BASE = "";
+    // Se deixar vazio, usa o mesmo domínio (ideal para quando backend e frontend estão juntos)
+    const API_BASE = "";
     const DEFAULT_TIP = "0x0000000000000000000000000000000000000000";
 
     const AppState = {
@@ -352,7 +360,6 @@ const API_BASE = "";
       currentTrackIndex: 0,
       tracks: [],
       filteredTracks: [],
-      // Favoritos continuam locais (preferencia do usuário)
       favorites: JSON.parse(localStorage.getItem('emofyFavorites') || '[]'),
       isPlaying: false,
       currentSection: 'home',
@@ -448,7 +455,6 @@ const API_BASE = "";
       btn.innerHTML = isOn ? '<span class="loading-spinner"></span> Uploading...' : '⬆️ Upload Global';
     }
 
-    // LÓGICA DE UPLOAD REAL PARA O SERVIDOR
     async function processUpload() {
       if (AppState.isUploading) return;
       setUploading(true);
@@ -464,7 +470,6 @@ const API_BASE = "";
       if (!title || !artist) { setUploading(false); return fail('Please fill in title and artist.'); }
       if (!audioFile) { setUploading(false); return fail('Please select an MP3 file.'); }
 
-      // Criar FormData para enviar arquivos
       const formData = new FormData();
       formData.append('title', title);
       formData.append('artist', artist);
@@ -483,7 +488,6 @@ const API_BASE = "";
         if (!res.ok) throw new Error('Failed to upload');
         const data = await res.json();
         
-        // Adiciona a faixa na lista local imediatamente
         AppState.tracks.unshift(data.track);
         renderTracks();
         
@@ -553,7 +557,6 @@ const API_BASE = "";
       if (matchMedia('(hover: hover)').matches){ box.classList.toggle('open', !!show); }
     }
 
-    // Interação com o servidor para Likes e Plays
     async function recordInteraction(trackId, type) {
       try {
         await fetch(`${API_BASE}/api/interaction`, {
@@ -588,11 +591,9 @@ const API_BASE = "";
       audio.play().then(() => {
         AppState.isPlaying = true;
         document.getElementById('playPause').innerHTML = '<span class="material-icons">pause</span>';
-        
-        // Atualiza playcount local e avisa o servidor
         track.playCount = (track.playCount || 0) + 1;
         recordInteraction(tId, 'play');
-        renderTracks(); // Renderizar novamente para mostrar novo playcount
+        renderTracks();
       }).catch(e => console.log("Autoplay blocked", e));
     }
 
@@ -627,7 +628,6 @@ const API_BASE = "";
 
       if (i > -1) {
         AppState.favorites.splice(i, 1);
-        // Remove like visualmente (no servidor só estamos somando por enquanto)
       } else {
         AppState.favorites.push(tId);
         type = 'like';
@@ -650,7 +650,6 @@ const API_BASE = "";
     function createTrackHTML(track, rank) {
       const isFavorite = AppState.favorites.some(id => idEq(id, track.id));
       const idStr = String(track.id).replace(/'/g, "\\'");
-      // Se não tiver cover vindo do servidor, usa default
       const srcUrl = track.cover || generateDefaultCover(track.title);
       
       return `
@@ -737,9 +736,7 @@ const API_BASE = "";
     function toggleSidebar(){ const sb = document.getElementById('sidebar'); if (sb.classList.contains('open')) closeSidebar(); else openSidebar(); }
     function toggleHowItWorks() { const box = document.getElementById('howItWorksBox'); box.classList.toggle('show'); }
 
-    // INICIALIZAÇÃO: AGORA BUSCA DO SERVIDOR
     async function initializeApp() {
-      // Carrega tracks da API
       try {
         const res = await fetch(`${API_BASE}/api/tracks`);
         if(res.ok) {
