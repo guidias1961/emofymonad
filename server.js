@@ -9,6 +9,12 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+
+// --- MÁGICA AQUI ---
+// Serve os arquivos estáticos (HTML, CSS, JS, Imagens) da pasta atual
+app.use(express.static(__dirname));
+// -------------------
+
 app.use('/uploads', express.static('uploads'));
 
 const DB_FILE = 'db.json';
@@ -22,26 +28,27 @@ const storage = multer.diskStorage({
     cb(null, dir);
   },
   filename: (req, file, cb) => {
-    // Remove espaços e caracteres especiais do nome do arquivo
     const cleanName = file.originalname.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9.\-_]/g, '');
     cb(null, Date.now() + '-' + cleanName);
   }
 });
 
-// CORREÇÃO AQUI: Inicializamos o multer com o storage
 const upload = multer({ storage: storage });
+
+// Rota para entregar o site caso acessem a raiz
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 app.get('/api/tracks', (req, res) => {
   const tracks = JSON.parse(fs.readFileSync(DB_FILE));
   res.json(tracks);
 });
 
-// CORREÇÃO AQUI: Usamos upload.fields([...]) dentro da rota como middleware
 app.post('/api/upload', upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }]), (req, res) => {
   try {
     const { title, artist, genre, twitter, tipAddress } = req.body;
     
-    // Verificação de segurança se o arquivo veio
     if (!req.files || !req.files['audio']) {
       return res.status(400).json({ error: 'Arquivo de áudio obrigatório' });
     }
@@ -49,6 +56,7 @@ app.post('/api/upload', upload.fields([{ name: 'audio', maxCount: 1 }, { name: '
     const audioFile = req.files['audio'][0];
     const coverFile = req.files['cover'] ? req.files['cover'][0] : null;
 
+    // Ajuste para garantir HTTPS na produção se necessário, ou usar relativo
     const BASE_URL = `${req.protocol}://${req.get('host')}`;
 
     const newTrack = {
