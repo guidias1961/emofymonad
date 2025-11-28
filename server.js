@@ -10,22 +10,29 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// --- MÁGICA AQUI ---
-// Serve os arquivos estáticos (HTML, CSS, JS, Imagens) da pasta atual
+// Serve o site (index.html, css, js) da raiz
 app.use(express.static(__dirname));
-// -------------------
 
-app.use('/uploads', express.static('uploads'));
+// --- CONFIGURAÇÃO DE PERSISTÊNCIA (VOLUME) ---
+// Define a pasta 'data' como local seguro. 
+// No Railway, isso será o Volume montado em /app/data
+const DATA_DIR = path.join(__dirname, 'data');
+const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
+const DB_FILE = path.join(DATA_DIR, 'db.json');
 
-const DB_FILE = 'db.json';
+// Garante que as pastas e arquivos existem ao iniciar
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR);
 if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, JSON.stringify([]));
+// ---------------------------------------------
 
-// Configuração do Storage
+// Serve os arquivos de upload a partir da pasta segura
+app.use('/uploads', express.static(UPLOADS_DIR));
+
+// Configuração do Multer para salvar na pasta segura
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = './uploads';
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir);
-    cb(null, dir);
+    cb(null, UPLOADS_DIR);
   },
   filename: (req, file, cb) => {
     const cleanName = file.originalname.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9.\-_]/g, '');
@@ -35,16 +42,24 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// Rota para entregar o site caso acessem a raiz
+// Rota Principal (Site)
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Rota: Listar Tracks
 app.get('/api/tracks', (req, res) => {
-  const tracks = JSON.parse(fs.readFileSync(DB_FILE));
-  res.json(tracks);
+  try {
+    const fileData = fs.readFileSync(DB_FILE, 'utf8');
+    const tracks = fileData ? JSON.parse(fileData) : [];
+    res.json(tracks);
+  } catch (error) {
+    console.error("Erro ao ler DB:", error);
+    res.json([]);
+  }
 });
 
+// Rota: Upload
 app.post('/api/upload', upload.fields([{ name: 'audio', maxCount: 1 }, { name: 'cover', maxCount: 1 }]), (req, res) => {
   try {
     const { title, artist, genre, twitter, tipAddress } = req.body;
@@ -56,7 +71,7 @@ app.post('/api/upload', upload.fields([{ name: 'audio', maxCount: 1 }, { name: '
     const audioFile = req.files['audio'][0];
     const coverFile = req.files['cover'] ? req.files['cover'][0] : null;
 
-    // Ajuste para garantir HTTPS na produção se necessário, ou usar relativo
+    // Constrói a URL usando o caminho relativo /uploads
     const BASE_URL = `${req.protocol}://${req.get('host')}`;
 
     const newTrack = {
@@ -84,6 +99,7 @@ app.post('/api/upload', upload.fields([{ name: 'audio', maxCount: 1 }, { name: '
   }
 });
 
+// Rota: Interação (Like/Play)
 app.post('/api/interaction', (req, res) => {
   const { trackId, type } = req.body;
   const tracks = JSON.parse(fs.readFileSync(DB_FILE));
@@ -101,4 +117,5 @@ app.post('/api/interaction', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🔥 Emofy Backend rodando na porta ${PORT}`);
+  console.log(`💾 Persistência configurada em: ${DATA_DIR}`);
 });
