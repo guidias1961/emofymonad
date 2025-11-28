@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>Emofy | Stream Your Music on Monad</title>
   
   <link rel="icon" type="image/png" href="./logo.png">
@@ -63,7 +63,8 @@
 
     .track {
       display:flex; align-items:center; gap:15px; padding:15px; border-radius:8px; margin-bottom:15px; cursor:pointer; transition:all .2s;
-      background:rgba(30,30,30,0.4); border:1px solid transparent
+      background:rgba(30,30,30,0.4); border:1px solid transparent;
+      -webkit-tap-highlight-color: transparent;
     }
     .track:hover {
       background:linear-gradient(135deg, rgba(var(--accent-rgb),0.15), rgba(var(--accent2-rgb),0.15));
@@ -90,6 +91,7 @@
     .support-btn {
       background:var(--grad); border:none; color:#fff; padding:8px 12px; border-radius:6px; cursor:pointer; font-size:.85rem;
       margin-left:8px; transition:transform .15s, filter .2s; font-weight:bold; box-shadow: 0 4px 10px rgba(131, 110, 249, 0.3);
+      touch-action: manipulation;
     }
     .support-btn:hover { filter:brightness(1.1); transform:translateY(-1px) }
 
@@ -99,7 +101,15 @@
     #playerBar { position:fixed; bottom:0; left:0; width:100%; height:90px; background:rgba(22,22,24,0.98); backdrop-filter:blur(15px); border-top:1px solid #333; display:flex; align-items:center; padding:0 20px; gap:20px; z-index:1200 }
     #currentCover { width:70px; height:70px; border-radius:8px; object-fit:cover; box-shadow:0 4px 12px rgba(0,0,0,0.7) }
     #playerControls { flex:1; display:flex; align-items:center; gap:20px }
-    #playerControls button { background:none; border:none; font-size:32px; color:#eee; cursor:pointer; transition:all .15s }
+    
+    /* CORREÇÃO MOBILE: Botões maiores e sem interferência de clique */
+    #playerControls button { 
+      background:none; border:none; font-size:32px; color:#eee; cursor:pointer; transition:all .15s;
+      touch-action: manipulation; /* Melhora resposta no mobile */
+      padding: 10px; /* Aumenta área de toque */
+    }
+    #playerControls button span { pointer-events: none; } /* Garante que o clique vá pro botão */
+    
     #playerControls button:hover { transform:scale(1.1); color:var(--accent) }
     #playerControls button:active { transform:scale(0.95) }
 
@@ -235,8 +245,8 @@
       <a id="nav-fav" onclick="showSection('favorites')">❤️ Favorites</a>
       <button onclick="toggleUpload()">🎵 Upload Track</button>
       <div class="cta-row">
-        <a class="btn-ghost" href="#" target="_blank" rel="noopener" aria-label="Open documentation">📘 Docs</a>
-        <a class="btn-ghost" href="#" target="_blank" rel="noopener" aria-label="Open X profile">𝕏 Twitter</a>
+        <a class="btn-ghost" href="https://emofy.gitbook.io/untitled" target="_blank" rel="noopener" aria-label="Open documentation">📘 Docs</a>
+        <a class="btn-ghost" href="https://x.com/emofyofc" target="_blank" rel="noopener" aria-label="Open X profile">𝕏 Twitter</a>
       </div>
       <button class="btn-ghost" id="howItWorksBtn" onclick="toggleHowItWorks()">❓ How it works</button>
       <div class="how-it-works-box" id="howItWorksBox">
@@ -673,9 +683,13 @@
 
     function renderTracks() {
       const container = document.getElementById('tracksList');
-      const source = AppState.filteredTracks.length > 0 || document.getElementById('searchBar').value 
-        ? AppState.filteredTracks 
-        : AppState.tracks;
+      // Cria uma cópia da lista para não bagunçar o estado original
+      let source = AppState.filteredTracks.length > 0 || document.getElementById('searchBar').value 
+        ? [...AppState.filteredTracks] 
+        : [...AppState.tracks];
+
+      // ORDENAÇÃO AUTOMÁTICA POR PLAYCOUNT (MAIS VIEWS NO TOPO)
+      source.sort((a, b) => (b.playCount || 0) - (a.playCount || 0));
 
       if (source.length === 0) {
         container.innerHTML = `
